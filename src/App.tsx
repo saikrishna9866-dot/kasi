@@ -19,7 +19,17 @@ import {
   X,
   Search,
   Home,
-  BarChart2
+  BarChart2,
+  ChevronDown,
+  ChevronUp,
+  MessageSquare,
+  Target,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Filter,
+  Download,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { cn } from './lib/utils';
 import { 
@@ -36,6 +46,25 @@ import {
   LineChart as RechartsLineChart,
   Line
 } from 'recharts';
+
+// Interfaces
+interface Insight {
+  id: number;
+  text: string;
+  priority: string;
+  why: string;
+  action: string;
+  type: 'warning' | 'danger' | 'success';
+}
+
+interface Goal {
+  id: number;
+  name: string;
+  target: number;
+  current: number;
+  deadline: string;
+  color: string;
+}
 
 // Mock Data
 const EXPENSE_DATA = [
@@ -63,6 +92,49 @@ const SAVINGS_DATA = [
   { name: 'Jun', amount: 7500 },
 ];
 
+const TRANSACTIONS = [
+  { id: 1, date: '2024-03-25', merchant: 'Amazon', category: 'Shopping', amount: -2500, status: 'Completed' },
+  { id: 2, date: '2024-03-24', merchant: 'Starbucks', category: 'Food', amount: -450, status: 'Completed' },
+  { id: 3, date: '2024-03-23', merchant: 'Salary Credit', category: 'Income', amount: 75000, status: 'Completed' },
+  { id: 4, date: '2024-03-22', merchant: 'Netflix', category: 'Bills', amount: -649, status: 'Completed' },
+  { id: 5, date: '2024-03-21', merchant: 'Uber', category: 'Travel', amount: -320, status: 'Completed' },
+  { id: 6, date: '2024-03-20', merchant: 'Zomato', category: 'Food', amount: -890, status: 'Completed' },
+  { id: 7, date: '2024-03-19', merchant: 'Apple Store', category: 'Shopping', amount: -12000, status: 'Completed' },
+];
+
+const GOALS: Goal[] = [
+  { id: 1, name: 'Emergency Fund', target: 200000, current: 125000, deadline: 'Dec 2024', color: 'bg-blue-500' },
+  { id: 2, name: 'New MacBook Pro', target: 180000, current: 45000, deadline: 'Aug 2024', color: 'bg-purple-500' },
+  { id: 3, name: 'Europe Trip', target: 350000, current: 80000, deadline: 'May 2025', color: 'bg-emerald-500' },
+];
+
+const INSIGHTS: Insight[] = [
+  { 
+    id: 1, 
+    text: "You are spending 35% of your income on food and dining.", 
+    priority: 'Medium', 
+    why: "Frequent ordering from Zomato and Swiggy (12 times in 30 days).", 
+    action: "Try meal prepping on weekends to save up to ₹4,000 monthly.",
+    type: 'warning' 
+  },
+  { 
+    id: 2, 
+    text: "Your savings decreased by 2% compared to last month.", 
+    priority: 'High', 
+    why: "Unexpected medical expense and high utility bills this month.", 
+    action: "Review your discretionary spending for the next 15 days.",
+    type: 'danger' 
+  },
+  { 
+    id: 3, 
+    text: "You can save ₹5000 by reducing unnecessary subscriptions.", 
+    priority: 'Low', 
+    why: "Detected 3 streaming services with low usage (under 2 hours/month).", 
+    action: "Cancel the 'Premium Plus' plan and switch to the basic tier.",
+    type: 'success' 
+  },
+];
+
 const TIPS = [
   "Automate your savings to build wealth effortlessly.",
   "Track every expense to find hidden leaks in your budget.",
@@ -75,6 +147,15 @@ export default function App() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeTipIndex, setActiveTipIndex] = useState(0);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    // Simulate loading
+    const timer = setTimeout(() => setIsLoading(false), 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -294,23 +375,36 @@ export default function App() {
             viewport={{ once: true }}
             className="glass-card p-8 bg-gradient-to-br from-primary/5 to-purple-500/5 border-primary/20"
           >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-primary/10 text-primary rounded-lg">
-                <Sparkles className="w-6 h-6" />
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 text-primary rounded-lg">
+                  <Sparkles className="w-6 h-6" />
+                </div>
+                <h3 className="text-2xl font-bold font-display">AI Intelligence</h3>
               </div>
-              <h3 className="text-2xl font-bold font-display">AI Insights</h3>
+              <button className="text-sm font-medium text-primary hover:underline">View All Insights</button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <InsightCard text="You are spending 35% of your income on food and dining." type="warning" />
-              <InsightCard text="Your savings decreased by 2% compared to last month." type="danger" />
-              <InsightCard text="You can save ₹5000 by reducing unnecessary subscriptions." type="success" />
+            <div className="grid grid-cols-1 gap-4">
+              {INSIGHTS.map((insight, idx) => (
+                <AdvancedInsightCard key={insight.id} insight={insight} delay={idx * 0.1} />
+              ))}
             </div>
           </motion.div>
         </section>
 
         {/* Analytics Dashboard */}
         <section className="space-y-6">
-          <h3 className="text-2xl font-bold font-display">Analytics Dashboard</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-2xl font-bold font-display">Analytics Dashboard</h3>
+            <div className="flex items-center gap-2">
+              <button className="p-2 rounded-lg glass-card hover:bg-muted transition-colors">
+                <Filter className="w-4 h-4" />
+              </button>
+              <button className="p-2 rounded-lg glass-card hover:bg-muted transition-colors">
+                <Download className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* Pie Chart */}
@@ -325,26 +419,30 @@ export default function App() {
                 Expenses by Category
               </h4>
               <div className="flex-1 min-h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsPieChart>
-                    <Pie
-                      data={EXPENSE_DATA}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {EXPENSE_DATA.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                    />
-                  </RechartsPieChart>
-                </ResponsiveContainer>
+                {isLoading ? <SkeletonLoader height="250px" /> : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsPieChart>
+                      <Pie
+                        data={EXPENSE_DATA}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                        animationBegin={0}
+                        animationDuration={1500}
+                      >
+                        {EXPENSE_DATA.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                      />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-2 mt-4">
                 {EXPENSE_DATA.map(item => (
@@ -369,18 +467,20 @@ export default function App() {
                 Monthly Spending
               </h4>
               <div className="flex-1 min-h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={MONTHLY_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/50" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'currentColor', opacity: 0.5 }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: 'currentColor', opacity: 0.5 }} />
-                    <Tooltip 
-                      cursor={{ fill: 'currentColor', opacity: 0.05 }}
-                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                    />
-                    <Bar dataKey="spend" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                {isLoading ? <SkeletonLoader height="250px" /> : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={MONTHLY_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/50" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'currentColor', opacity: 0.5 }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: 'currentColor', opacity: 0.5 }} />
+                      <Tooltip 
+                        cursor={{ fill: 'currentColor', opacity: 0.05 }}
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                      />
+                      <Bar dataKey="spend" fill="#3b82f6" radius={[4, 4, 0, 0]} animationDuration={1500} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </motion.div>
 
@@ -397,20 +497,109 @@ export default function App() {
                 Savings Trend
               </h4>
               <div className="flex-1 min-h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsLineChart data={SAVINGS_DATA} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/50" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'currentColor', opacity: 0.5 }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: 'currentColor', opacity: 0.5 }} />
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                    />
-                    <Line type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981', strokeWidth: 2, stroke: 'var(--background)' }} activeDot={{ r: 6 }} />
-                  </RechartsLineChart>
-                </ResponsiveContainer>
+                {isLoading ? <SkeletonLoader height="300px" /> : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsLineChart data={SAVINGS_DATA} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/50" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'currentColor', opacity: 0.5 }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: 'currentColor', opacity: 0.5 }} />
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                      />
+                      <Line type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981', strokeWidth: 2, stroke: 'var(--background)' }} activeDot={{ r: 6 }} animationDuration={2000} />
+                    </RechartsLineChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </motion.div>
 
+          </div>
+        </section>
+
+        {/* Goal Tracking */}
+        <section className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-2xl font-bold font-display">Financial Goals</h3>
+            <button className="text-sm font-medium text-primary flex items-center gap-1 hover:underline">
+              <Plus className="w-4 h-4" /> Add New Goal
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {GOALS.map((goal, idx) => (
+              <GoalCard key={goal.id} goal={goal} delay={idx * 0.1} />
+            ))}
+          </div>
+        </section>
+
+        {/* Transaction History */}
+        <section className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <h3 className="text-2xl font-bold font-display">Recent Transactions</h3>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input 
+                type="text" 
+                placeholder="Search transactions..." 
+                className="w-full pl-10 pr-4 py-2 rounded-xl glass-card text-sm outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="glass-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-border/50 bg-muted/30">
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Merchant</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Category</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Date</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Amount</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {TRANSACTIONS.filter(t => t.merchant.toLowerCase().includes(searchQuery.toLowerCase())).map((t) => (
+                    <tr key={t.id} className="hover:bg-muted/20 transition-colors group">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "w-8 h-8 rounded-lg flex items-center justify-center",
+                            t.amount < 0 ? "bg-rose-500/10 text-rose-500" : "bg-emerald-500/10 text-emerald-500"
+                          )}>
+                            {t.amount < 0 ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+                          </div>
+                          <span className="font-medium">{t.merchant}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="px-2 py-1 rounded-md bg-muted text-xs font-medium">{t.category}</span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">{t.date}</td>
+                      <td className={cn(
+                        "px-6 py-4 font-bold",
+                        t.amount < 0 ? "text-rose-500" : "text-emerald-500"
+                      )}>
+                        {t.amount < 0 ? '-' : '+'}₹{Math.abs(t.amount).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-500">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          {t.status}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-4 border-t border-border/50 flex items-center justify-between text-sm text-muted-foreground">
+              <span>Showing 7 of 42 transactions</span>
+              <div className="flex items-center gap-2">
+                <button className="px-3 py-1 rounded-md glass-card hover:bg-muted disabled:opacity-50" disabled>Prev</button>
+                <button className="px-3 py-1 rounded-md glass-card hover:bg-muted">Next</button>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -472,6 +661,74 @@ export default function App() {
         </section>
       </div>
     </main>
+
+    {/* Floating Chat Assistant */}
+    <div className="fixed bottom-6 right-6 z-[60]">
+      <motion.button 
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => setIsChatOpen(!isChatOpen)}
+        className="w-14 h-14 rounded-full bg-primary text-white shadow-2xl flex items-center justify-center hover:bg-primary/90 transition-colors"
+      >
+        {isChatOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
+      </motion.button>
+
+      {isChatOpen && (
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="absolute bottom-20 right-0 w-[350px] h-[500px] glass-card flex flex-col overflow-hidden shadow-2xl border-primary/20"
+        >
+          <div className="p-4 bg-primary text-white flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm">Money Map AI</h4>
+              <p className="text-[10px] opacity-80">Always active to help you</p>
+            </div>
+          </div>
+          <div className="flex-1 p-4 overflow-y-auto space-y-4">
+            <div className="flex items-start gap-2">
+              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                <Sparkles className="w-3 h-3" />
+              </div>
+              <div className="p-3 rounded-2xl rounded-tl-none bg-muted text-sm">
+                Hello! I'm your AI financial assistant. How can I help you today?
+              </div>
+            </div>
+            <div className="flex items-start gap-2 flex-row-reverse">
+              <div className="w-6 h-6 rounded-full bg-accent flex items-center justify-center text-accent-foreground flex-shrink-0 text-[10px] font-bold">
+                JD
+              </div>
+              <div className="p-3 rounded-2xl rounded-tr-none bg-primary text-white text-sm">
+                How much did I spend on food this month?
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                <Sparkles className="w-3 h-3" />
+              </div>
+              <div className="p-3 rounded-2xl rounded-tl-none bg-muted text-sm">
+                You've spent ₹14,750 on food so far. This is 12% higher than your average. Would you like to see a breakdown?
+              </div>
+            </div>
+          </div>
+          <div className="p-4 border-t border-border/50">
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-muted/50 border border-border/50">
+              <input 
+                type="text" 
+                placeholder="Type your message..." 
+                className="flex-1 bg-transparent outline-none text-sm px-2"
+              />
+              <button className="p-2 rounded-lg bg-primary text-white">
+                <Plus className="w-4 h-4 rotate-45" />
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </div>
   </div>
 </div>
   );
@@ -517,6 +774,123 @@ function InsightCard({ text, type }: { text: string, type: 'warning' | 'danger' 
     <div className={cn("p-4 rounded-xl border text-sm font-medium", styles[type])}>
       {text}
     </div>
+  );
+}
+
+function AdvancedInsightCard({ insight, delay }: { insight: Insight, delay: number, key?: any }) {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  const priorityStyles: any = {
+    High: "bg-rose-500 text-white",
+    Medium: "bg-amber-500 text-white",
+    Low: "bg-emerald-500 text-white"
+  };
+
+  const borderStyles: any = {
+    warning: "border-amber-500/20 bg-amber-500/5",
+    danger: "border-rose-500/20 bg-rose-500/5",
+    success: "border-emerald-500/20 bg-emerald-500/5"
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, x: -20 }}
+      whileInView={{ opacity: 1, x: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay }}
+      className={cn("p-4 rounded-xl border transition-all", borderStyles[insight.type])}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className={cn("mt-1 p-1.5 rounded-lg", insight.type === 'danger' ? 'bg-rose-500/20 text-rose-500' : insight.type === 'warning' ? 'bg-amber-500/20 text-amber-500' : 'bg-emerald-500/20 text-emerald-500')}>
+            {insight.type === 'danger' ? <AlertCircle className="w-4 h-4" /> : insight.type === 'warning' ? <Bell className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+          </div>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className={cn("text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded", priorityStyles[insight.priority])}>
+                {insight.priority} Priority
+              </span>
+              <p className="text-sm font-semibold">{insight.text}</p>
+            </div>
+            <div className="flex items-center gap-4 mt-2">
+              <button 
+                onClick={() => setIsOpen(!isOpen)}
+                className="text-xs font-medium text-muted-foreground hover:text-primary flex items-center gap-1"
+              >
+                {isOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                {isOpen ? 'Hide details' : 'Why this?'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {isOpen && (
+        <motion.div 
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          className="mt-4 pt-4 border-t border-border/50 space-y-3"
+        >
+          <div>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Analysis</p>
+            <p className="text-sm">{insight.why}</p>
+          </div>
+          <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+            <p className="text-xs font-bold text-primary uppercase tracking-wider mb-1">Actionable Suggestion</p>
+            <p className="text-sm font-medium">{insight.action}</p>
+          </div>
+        </motion.div>
+      )}
+    </motion.div>
+  );
+}
+
+function GoalCard({ goal, delay }: { goal: Goal, delay: number, key?: any }) {
+  const progress = (goal.current / goal.target) * 100;
+  
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay }}
+      className="glass-card p-6 space-y-4 hover:shadow-2xl transition-all group"
+    >
+      <div className="flex items-center justify-between">
+        <div className="p-2 rounded-lg bg-muted group-hover:bg-primary/10 transition-colors">
+          <Target className="w-5 h-5 group-hover:text-primary transition-colors" />
+        </div>
+        <span className="text-xs font-medium text-muted-foreground">Due {goal.deadline}</span>
+      </div>
+      <div>
+        <h4 className="font-bold mb-1">{goal.name}</h4>
+        <div className="flex items-baseline gap-1">
+          <span className="text-lg font-bold">₹{goal.current.toLocaleString()}</span>
+          <span className="text-xs text-muted-foreground">of ₹{goal.target.toLocaleString()}</span>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+          <motion.div 
+            initial={{ width: 0 }}
+            whileInView={{ width: `${progress}%` }}
+            viewport={{ once: true }}
+            transition={{ duration: 1, delay: delay + 0.5 }}
+            className={cn("h-full rounded-full", goal.color)}
+          />
+        </div>
+        <p className="text-right text-[10px] font-bold text-muted-foreground uppercase">{Math.round(progress)}% Complete</p>
+      </div>
+    </motion.div>
+  );
+}
+
+function SkeletonLoader({ height }: { height: string }) {
+  return (
+    <div 
+      className="w-full bg-muted/50 rounded-xl animate-pulse" 
+      style={{ height }}
+    />
   );
 }
 
