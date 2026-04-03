@@ -59,6 +59,7 @@ export default function InvestmentPlannerModule({ onClose }: InvestmentPlannerMo
   const [riskLevel, setRiskLevel] = useState('medium');
   const [investmentType, setInvestmentType] = useState('sip');
   const [goalType, setGoalType] = useState('house');
+  const [customGoalName, setCustomGoalName] = useState('');
   const [targetAmount, setTargetAmount] = useState(5000000);
   const [duration, setDuration] = useState(10); // years
 
@@ -186,6 +187,27 @@ export default function InvestmentPlannerModule({ onClose }: InvestmentPlannerMo
                     </button>
                   ))}
                 </div>
+
+                <AnimatePresence>
+                  {goalType === 'other' && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <label className="text-xs font-medium mb-1.5 block">Custom Goal Name</label>
+                      <input 
+                        type="text"
+                        value={customGoalName}
+                        onChange={(e) => setCustomGoalName(e.target.value)}
+                        placeholder="Others"
+                        className="w-full px-4 py-3 rounded-xl bg-muted/50 border border-border focus:border-primary outline-none transition-all"
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 <div>
                   <label className="text-xs font-medium mb-1.5 block">Target Amount (₹)</label>
                   <input 

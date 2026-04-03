@@ -1,5 +1,5 @@
 {
   "name": "Money Map",
   "description": "AI-powered financial web application integrated with Supabase for real-time data management and AI-driven insights.",
-  "requestFramePermissions": ["microphone"]
+  "requestFramePermissions": []
 }

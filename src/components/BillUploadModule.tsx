@@ -34,6 +34,8 @@ export default function BillUploadModule({ onClose, onSave }: BillUploadModulePr
   const [extractedData, setExtractedData] = useState<Partial<Bill>>({});
   const [isDuplicate, setIsDuplicate] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const selectedFile = acceptedFiles[0];
@@ -115,19 +117,39 @@ export default function BillUploadModule({ onClose, onSave }: BillUploadModulePr
       return;
     }
 
+    setIsSaving(true);
+    setError(null);
+
+    let imageUrl = undefined;
+    if (file) {
+      const uploadedUrl = await databaseService.uploadBillImage(file);
+      if (uploadedUrl) {
+        imageUrl = uploadedUrl;
+      }
+    }
+
     const billToSave = {
       name: extractedData.name,
       amount: extractedData.amount,
       category: extractedData.category || 'Others',
       date: extractedData.date || new Date().toISOString(),
       paymentMethod: extractedData.paymentMethod,
-      tag: extractedData.tag
+      tag: extractedData.tag,
+      imageUrl: imageUrl
     };
 
-    const savedBill = await databaseService.saveBill(billToSave as any);
+    const { data: savedBill, error: saveError } = await databaseService.saveBill(billToSave as any);
+    setIsSaving(false);
+    
     if (savedBill) {
-      onSave(savedBill);
-      onClose();
+      setIsSaved(true);
+      setTimeout(() => {
+        onSave(savedBill);
+        onClose();
+      }, 1500);
+    } else {
+      console.error("Save Error:", saveError);
+      setError(`Failed to save bill: ${saveError?.message || 'Unknown error'}`);
     }
   };
 
@@ -318,11 +340,30 @@ export default function BillUploadModule({ onClose, onSave }: BillUploadModulePr
             </button>
             <button 
               onClick={handleSave}
-              disabled={isProcessing || !extractedData.name}
-              className="flex-1 py-4 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/30 hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+              disabled={isProcessing || isSaving || isSaved || !extractedData.name}
+              className={cn(
+                "flex-1 py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2",
+                isSaved 
+                  ? "bg-green-500 text-white shadow-lg shadow-green-500/30 hover:bg-green-600" 
+                  : "bg-primary text-white shadow-lg shadow-primary/30 hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
             >
-              <Check className="w-5 h-5" />
-              Save Expense
+              {isSaved ? (
+                <>
+                  <Check className="w-5 h-5" />
+                  Saved Successfully
+                </>
+              ) : isSaving ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Check className="w-5 h-5" />
+                  Save Expense
+                </>
+              )}
             </button>
           </div>
         </div>

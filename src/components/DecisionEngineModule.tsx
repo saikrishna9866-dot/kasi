@@ -10,7 +10,6 @@ import {
   CheckCircle2, 
   Info, 
   X, 
-  Mic, 
   Loader2, 
   ArrowRight, 
   PieChart, 
@@ -19,7 +18,7 @@ import {
   IndianRupee
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
-import { databaseService, Bill } from '../services/databaseService';
+import { databaseService, Transaction } from '../services/databaseService';
 import { cn } from '../lib/utils';
 
 interface Message {
@@ -70,11 +69,11 @@ export default function DecisionEngineModule({ onClose }: DecisionEngineModulePr
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const bills = await databaseService.getBills();
+      const transactions = await databaseService.getTransactions('current-user-id');
       
       const prompt = `
         You are an AI Financial Advisor for "Money Map". 
-        User's transaction history: ${JSON.stringify(bills.slice(0, 20))}
+        User's transaction history: ${JSON.stringify(transactions.slice(0, 20))}
         User's question: "${text}"
 
         If the user wants to simulate a decision (e.g., "If I spend X on Y"), provide a simulation response.
@@ -265,9 +264,6 @@ export default function DecisionEngineModule({ onClose }: DecisionEngineModulePr
             className="w-full pl-6 pr-24 py-4 rounded-2xl bg-background border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none shadow-xl shadow-primary/5 transition-all"
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-            <button className="p-2 hover:bg-muted rounded-xl transition-colors text-muted-foreground">
-              <Mic className="w-5 h-5" />
-            </button>
             <button 
               onClick={() => handleSend(input)}
               disabled={!input.trim() || isLoading}

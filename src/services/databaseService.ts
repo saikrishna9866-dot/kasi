@@ -9,17 +9,49 @@ export interface Bill {
   date: string;
   paymentMethod?: string;
   tag?: 'Personal' | 'Business';
+  imageUrl?: string;
 }
 
 export const databaseService = {
+  // Upload bill image to storage
+  uploadBillImage: async (file: File): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('bills')
+        .upload(fileName, file);
+
+      if (error) {
+        console.error("Error uploading image:", error);
+        return null;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('bills')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (err) {
+      console.error("Upload error:", err);
+      return null;
+    }
+  },
+
   // Save a new bill
-  saveBill: async (bill: Omit<Bill, 'id' | 'date'>): Promise<Bill | null> => {
+  saveBill: async (bill: Omit<Bill, 'id'>): Promise<{ data: Bill | null, error: any }> => {
+    const billToInsert = { ...bill };
+    if (billToInsert.imageUrl === undefined) {
+      delete billToInsert.imageUrl;
+    }
+    
     const { data, error } = await supabase
       .from('bills')
       .insert([
         {
-          ...bill,
-          date: new Date().toISOString(),
+          ...billToInsert,
+          date: billToInsert.date || new Date().toISOString(),
         }
       ])
       .select()
@@ -27,13 +59,13 @@ export const databaseService = {
     
     if (error) {
       console.error("Error saving bill to Supabase:", error);
-      return null;
+      return { data: null, error };
     }
     
     // Dispatch a custom event so other components can listen for updates
     window.dispatchEvent(new Event('billsUpdated'));
     
-    return data as Bill;
+    return { data: data as Bill, error: null };
   },
 
   // Get all bills
