@@ -19,7 +19,7 @@ import {
   IndianRupee
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
-import { databaseService, Transaction } from '../services/databaseService';
+import { databaseService, Bill } from '../services/databaseService';
 import { cn } from '../lib/utils';
 
 interface Message {
@@ -70,11 +70,11 @@ export default function DecisionEngineModule({ onClose }: DecisionEngineModulePr
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const transactions = await databaseService.getTransactions('current-user-id');
+      const bills = await databaseService.getBills();
       
       const prompt = `
         You are an AI Financial Advisor for "Money Map". 
-        User's transaction history: ${JSON.stringify(transactions.slice(0, 20))}
+        User's transaction history: ${JSON.stringify(bills.slice(0, 20))}
         User's question: "${text}"
 
         If the user wants to simulate a decision (e.g., "If I spend X on Y"), provide a simulation response.

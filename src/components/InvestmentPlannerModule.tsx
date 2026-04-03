@@ -26,7 +26,6 @@ import {
   Area
 } from 'recharts';
 import { cn } from '../lib/utils';
-import { databaseService } from '../services/databaseService';
 
 interface InvestmentPlannerModuleProps {
   onClose: () => void;
@@ -381,20 +380,7 @@ export default function InvestmentPlannerModule({ onClose }: InvestmentPlannerMo
           <button onClick={onClose} className="px-8 py-3 rounded-xl font-bold text-muted-foreground hover:bg-muted transition-all">
             Close Planner
           </button>
-          <button 
-            onClick={async () => {
-              const goal = {
-                user_id: 'current-user-id',
-                title: `${GOAL_TYPES.find(g => g.id === goalType)?.name || 'New Goal'} Plan`,
-                target_amount: targetAmount,
-                current_amount: savings,
-                deadline: new Date(new Date().setFullYear(new Date().getFullYear() + duration)).toISOString().split('T')[0]
-              };
-              await databaseService.createGoal(goal);
-              onClose();
-            }}
-            className="px-8 py-3 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all flex items-center gap-2"
-          >
+          <button className="px-8 py-3 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all flex items-center gap-2">
             Save Plan <ArrowRight className="w-4 h-4" />
           </button>
         </div>

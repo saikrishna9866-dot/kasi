@@ -16,12 +16,12 @@ import {
   IndianRupee
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
-import { databaseService, Transaction } from '../services/databaseService';
+import { databaseService, Bill } from '../services/databaseService';
 import { cn } from '../lib/utils';
 
 interface BillUploadModuleProps {
   onClose: () => void;
-  onSave: (transaction: Transaction) => void;
+  onSave: (bill: Bill) => void;
 }
 
 const CATEGORIES = ['Food', 'Travel', 'Shopping', 'Bills', 'Income', 'Others'];
@@ -31,7 +31,7 @@ export default function BillUploadModule({ onClose, onSave }: BillUploadModulePr
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [extractedData, setExtractedData] = useState<Partial<Transaction>>({});
+  const [extractedData, setExtractedData] = useState<Partial<Bill>>({});
   const [isDuplicate, setIsDuplicate] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,7 +42,7 @@ export default function BillUploadModule({ onClose, onSave }: BillUploadModulePr
       const reader = new FileReader();
       reader.onload = () => {
         setPreview(reader.result as string);
-        processBill(selectedFile);
+        processBill(reader.result as string);
       };
       reader.readAsDataURL(selectedFile);
     }
@@ -57,61 +57,76 @@ export default function BillUploadModule({ onClose, onSave }: BillUploadModulePr
     multiple: false
   } as any);
 
-  const processBill = async (file: File) => {
+  const processBill = async (base64Image: string) => {
     setIsProcessing(true);
     setError(null);
     try {
-      const result = await databaseService.uploadBill(file);
-      if (!result) throw new Error("Failed to process bill");
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const base64Data = base64Image.split(',')[1];
 
-      const newExtractedData: Partial<Transaction> = {
-        merchant: result.merchant || '',
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [
+          {
+            parts: [
+              { text: "Extract the following details from this bill in JSON format: merchantName, amount (number), date (ISO format), category (one of: Food, Travel, Shopping, Bills, Income, Others), paymentMethod (one of: UPI, Card, Cash, Net Banking). If you can't find a field, leave it null." },
+              { inlineData: { data: base64Data, mimeType: "image/jpeg" } }
+            ]
+          }
+        ],
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
+
+      const result = JSON.parse(response.text || '{}');
+      
+      const newExtractedData: Partial<Bill> = {
+        name: result.merchantName || '',
         amount: result.amount || 0,
         date: result.date || new Date().toISOString().split('T')[0],
         category: result.category || 'Others',
-        payment_method: 'UPI',
-        type: 'expense'
+        paymentMethod: result.paymentMethod || 'UPI',
+        tag: 'Personal'
       };
 
       setExtractedData(newExtractedData);
 
       // Check for duplicates
-      const existingTransactions = await databaseService.getTransactions('current-user-id');
-      const duplicate = existingTransactions.find(t => 
-        t.merchant.toLowerCase() === newExtractedData.merchant?.toLowerCase() && 
-        t.amount === newExtractedData.amount &&
-        t.date === newExtractedData.date
+      const existingBills = await databaseService.getBills();
+      const duplicate = existingBills.find(b => 
+        b.name.toLowerCase() === newExtractedData.name?.toLowerCase() && 
+        b.amount === newExtractedData.amount &&
+        b.date === newExtractedData.date
       );
       setIsDuplicate(!!duplicate);
 
     } catch (err) {
-      console.error("Processing Error:", err);
-      setError("AI failed to read the bill. Please enter details manually.");
+      console.error("AI Processing Error:", err);
+      setError("Failed to extract data. Please enter manually.");
     } finally {
       setIsProcessing(false);
     }
   };
 
   const handleSave = async () => {
-    if (!extractedData.merchant || !extractedData.amount) {
+    if (!extractedData.name || !extractedData.amount) {
       setError("Merchant name and amount are required.");
       return;
     }
 
-    const transactionToSave = {
-      user_id: 'current-user-id',
-      merchant: extractedData.merchant,
+    const billToSave = {
+      name: extractedData.name,
       amount: extractedData.amount,
       category: extractedData.category || 'Others',
       date: extractedData.date || new Date().toISOString(),
-      payment_method: extractedData.payment_method || 'UPI',
-      type: 'expense' as const,
-      tags: []
+      paymentMethod: extractedData.paymentMethod,
+      tag: extractedData.tag
     };
 
-    const savedTransaction = await databaseService.addTransaction(transactionToSave);
-    if (savedTransaction) {
-      onSave(savedTransaction);
+    const savedBill = await databaseService.saveBill(billToSave as any);
+    if (savedBill) {
+      onSave(savedBill);
       onClose();
     }
   };
@@ -208,8 +223,8 @@ export default function BillUploadModule({ onClose, onSave }: BillUploadModulePr
                 <Store className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input 
                   type="text"
-                  value={extractedData.merchant || ''}
-                  onChange={(e) => setExtractedData({...extractedData, merchant: e.target.value})}
+                  value={extractedData.name || ''}
+                  onChange={(e) => setExtractedData({...extractedData, name: e.target.value})}
                   className="w-full pl-10 pr-4 py-3 rounded-xl bg-muted/50 border border-border focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none"
                   placeholder="e.g. Starbucks"
                 />
@@ -260,8 +275,8 @@ export default function BillUploadModule({ onClose, onSave }: BillUploadModulePr
                 <div className="relative">
                   <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <select 
-                    value={extractedData.payment_method || 'UPI'}
-                    onChange={(e) => setExtractedData({...extractedData, payment_method: e.target.value})}
+                    value={extractedData.paymentMethod || 'UPI'}
+                    onChange={(e) => setExtractedData({...extractedData, paymentMethod: e.target.value})}
                     className="w-full pl-10 pr-4 py-3 rounded-xl bg-muted/50 border border-border focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none appearance-none"
                   >
                     {PAYMENT_METHODS.map(pm => <option key={pm} value={pm}>{pm}</option>)}
@@ -276,10 +291,10 @@ export default function BillUploadModule({ onClose, onSave }: BillUploadModulePr
                 {['Personal', 'Business'].map((t) => (
                   <button
                     key={t}
-                    onClick={() => setExtractedData({...extractedData, tags: [t]})}
+                    onClick={() => setExtractedData({...extractedData, tag: t as any})}
                     className={cn(
                       "flex-1 py-3 rounded-xl border transition-all flex items-center justify-center gap-2 font-medium",
-                      extractedData.tags?.includes(t) 
+                      extractedData.tag === t 
                         ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" 
                         : "bg-muted/50 border-border hover:border-primary/50"
                     )}

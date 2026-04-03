@@ -1,7 +1,7 @@
-import { useState, useEffect, ReactNode, useRef, ChangeEvent, useMemo } from 'react';
+import { useState, useEffect, ReactNode, useRef, ChangeEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
-import { databaseService, Transaction, Goal, Insight } from './services/databaseService';
+import { databaseService, Bill } from './services/databaseService';
 import { 
   BarChart3, 
   PieChart, 
@@ -66,7 +66,24 @@ import {
   Line
 } from 'recharts';
 
-// Interfaces removed, imported from databaseService
+// Interfaces
+interface Insight {
+  id: number;
+  text: string;
+  priority: string;
+  why: string;
+  action: string;
+  type: 'warning' | 'danger' | 'success';
+}
+
+interface Goal {
+  id: number;
+  name: string;
+  target: number;
+  current: number;
+  deadline: string;
+  color: string;
+}
 
 // Mock Data
 const EXPENSE_DATA = [
@@ -76,7 +93,67 @@ const EXPENSE_DATA = [
   { name: 'Shopping', value: 200, color: '#10b981' },
 ];
 
-// Mock data removed
+const MONTHLY_DATA = [
+  { name: 'Jan', spend: 1200 },
+  { name: 'Feb', spend: 900 },
+  { name: 'Mar', spend: 1500 },
+  { name: 'Apr', spend: 1100 },
+  { name: 'May', spend: 1300 },
+  { name: 'Jun', spend: 1000 },
+];
+
+const SAVINGS_DATA = [
+  { name: 'Jan', amount: 5000 },
+  { name: 'Feb', amount: 5500 },
+  { name: 'Mar', amount: 5200 },
+  { name: 'Apr', amount: 6000 },
+  { name: 'May', amount: 6800 },
+  { name: 'Jun', amount: 7500 },
+];
+
+const TRANSACTIONS = [
+  { id: 1, date: '2024-03-25', merchant: 'Amazon', category: 'Shopping', amount: -2500, status: 'Completed' },
+  { id: 2, date: '2024-03-24', merchant: 'Starbucks', category: 'Food', amount: -450, status: 'Completed' },
+  { id: 3, date: '2024-03-23', merchant: 'Salary Credit', category: 'Income', amount: 75000, status: 'Completed' },
+  { id: 4, date: '2024-03-22', merchant: 'Netflix', category: 'Bills', amount: -649, status: 'Completed' },
+  { id: 5, date: '2024-03-21', merchant: 'Uber', category: 'Travel', amount: -320, status: 'Completed' },
+  { id: 6, date: '2024-03-20', merchant: 'Zomato', category: 'Food', amount: -890, status: 'Completed' },
+  { id: 7, date: '2024-03-19', merchant: 'Apple Store', category: 'Shopping', amount: -12000, status: 'Completed' },
+];
+
+const GOALS: Goal[] = [
+  { id: 1, name: 'Emergency Fund', target: 200000, current: 125000, deadline: 'Dec 2024', color: 'bg-blue-500' },
+  { id: 2, name: 'New MacBook Pro', target: 180000, current: 45000, deadline: 'Aug 2024', color: 'bg-purple-500' },
+  { id: 3, name: 'Europe Trip', target: 350000, current: 80000, deadline: 'May 2025', color: 'bg-emerald-500' },
+];
+
+const INSIGHTS: Insight[] = [
+  { 
+    id: 1, 
+    text: "You are spending 35% of your income on food and dining.", 
+    priority: 'Medium', 
+    why: "Frequent ordering from Zomato and Swiggy (12 times in 30 days).", 
+    action: "Try meal prepping on weekends to save up to ₹4,000 monthly.",
+    type: 'warning' 
+  },
+  { 
+    id: 2, 
+    text: "Your savings decreased by 2% compared to last month.", 
+    priority: 'High', 
+    why: "Unexpected medical expense and high utility bills this month.", 
+    action: "Review your discretionary spending for the next 15 days.",
+    type: 'danger' 
+  },
+  { 
+    id: 3, 
+    text: "You can save ₹5000 by reducing unnecessary subscriptions.", 
+    priority: 'Low', 
+    why: "Detected 3 streaming services with low usage (under 2 hours/month).", 
+    action: "Cancel the 'Premium Plus' plan and switch to the basic tier.",
+    type: 'success' 
+  },
+];
+
 const TIPS = [
   "Automate your savings to build wealth effortlessly.",
   "Track every expense to find hidden leaks in your budget.",
@@ -85,7 +162,18 @@ const TIPS = [
   "Review your subscriptions monthly and cancel unused ones."
 ];
 
-const SUBSCRIPTIONS: any[] = [];
+const SUBSCRIPTIONS = [
+  { id: 1, name: 'Netflix', amount: 649, date: '15th Apr', icon: <Globe className="w-4 h-4" />, color: 'bg-red-500' },
+  { id: 2, name: 'Spotify', amount: 119, date: '12th Apr', icon: <Globe className="w-4 h-4" />, color: 'bg-emerald-500' },
+  { id: 3, name: 'Adobe CC', amount: 4230, date: '28th Apr', icon: <Globe className="w-4 h-4" />, color: 'bg-blue-500' },
+  { id: 4, name: 'ChatGPT Plus', amount: 1650, date: '05th Apr', icon: <Sparkles className="w-4 h-4" />, color: 'bg-purple-500' },
+];
+
+const SMART_ALERTS = [
+  { id: 1, title: 'Unusual spending detected', desc: '₹4,500 spent on "Electronics" which is 40% higher than your average.', type: 'warning', icon: <AlertCircle className="w-5 h-5" /> },
+  { id: 2, title: 'Subscription identified', desc: 'We found a new recurring payment of ₹999 for "SaaS Tool".', type: 'info', icon: <RefreshCcw className="w-5 h-5" /> },
+  { id: 3, title: 'Savings goal achieved', desc: 'Congratulations! You reached 75% of your "Emergency Fund" goal.', type: 'success', icon: <ShieldCheck className="w-5 h-5" /> },
+];
 
 export default function App() {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -94,31 +182,7 @@ export default function App() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [allTransactions, setAllTransactions] = useState<any[]>([]);
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [insights, setInsights] = useState<Insight[]>([]);
-  const [analytics, setAnalytics] = useState<any>(null);
-
-  const expenseChartData = useMemo(() => {
-    if (!analytics?.categoryBreakdown) return [];
-    const colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#ef4444'];
-    return Object.entries(analytics.categoryBreakdown).map(([name, value], idx) => ({
-      name,
-      value,
-      color: colors[idx % colors.length]
-    }));
-  }, [analytics]);
-
-  const monthlyChartData = useMemo(() => {
-    if (!analytics?.monthlySpending) return [];
-    return Object.entries(analytics.monthlySpending).map(([name, spend]) => ({
-      name,
-      spend
-    })).sort((a, b) => {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return months.indexOf(a.name) - months.indexOf(b.name);
-    });
-  }, [analytics]);
+  const [allTransactions, setAllTransactions] = useState([...TRANSACTIONS]);
   const [activeAction, setActiveAction] = useState<'bill' | 'investment' | 'smart' | null>(null);
   const [greeting, setGreeting] = useState('');
   const [navigationHistory, setNavigationHistory] = useState<string[]>(['home']);
@@ -139,44 +203,34 @@ export default function App() {
   };
 
   useEffect(() => {
-    const loadData = async () => {
-      const userId = 'current-user-id';
-      const [txs, gls, anlytcs, ins] = await Promise.all([
-        databaseService.getTransactions(userId),
-        databaseService.getGoals(userId),
-        databaseService.getAnalytics(userId),
-        databaseService.getInsights ? databaseService.getInsights(userId) : Promise.resolve([])
-      ]);
-      
-      setAllTransactions(txs);
-      setGoals(gls);
-      setAnalytics(anlytcs);
-      setInsights(ins);
+    const loadTransactions = async () => {
+      const savedBills = await databaseService.getBills();
+      const formattedSaved = savedBills.map(bill => ({
+        id: bill.id,
+        merchant: bill.name,
+        category: bill.category,
+        date: new Date(bill.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        amount: bill.amount,
+        status: 'Completed'
+      }));
+      setAllTransactions([...formattedSaved, ...TRANSACTIONS]);
     };
 
-    loadData();
-    window.addEventListener('transactionsUpdated', loadData);
-    window.addEventListener('goalsUpdated', loadData);
-    return () => {
-      window.removeEventListener('transactionsUpdated', loadData);
-      window.removeEventListener('goalsUpdated', loadData);
-    };
+    loadTransactions();
+    window.addEventListener('billsUpdated', loadTransactions);
+    return () => window.removeEventListener('billsUpdated', loadTransactions);
   }, []);
 
   const handleBankStatementUpload = () => {
     fileInputRef.current?.click();
   };
 
-  const onFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+  const onFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setIsLoading(true);
-      const result = await databaseService.uploadStatement(file, 'current-user-id');
-      if (result) {
-        alert(`Successfully processed ${result.count} transactions.`);
-        window.dispatchEvent(new Event('transactionsUpdated'));
-      }
-      setIsLoading(false);
+      console.log('File selected:', file.name);
+      // Here you would normally handle the file upload/processing
+      alert(`Statement "${file.name}" selected for processing.`);
     }
   };
 
@@ -509,7 +563,7 @@ export default function App() {
                   <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <SummaryCard 
                       title="Total Expenses" 
-                      amount={`₹${analytics?.totalExpenses?.toLocaleString() || '0'}`} 
+                      amount="₹42,500" 
                       trend="+12% this month" 
                       trendUp={false}
                       icon={<Wallet className="w-6 h-6 text-rose-500" />}
@@ -524,8 +578,8 @@ export default function App() {
                       delay={0.6}
                     />
                     <SummaryCard 
-                      title="Transactions" 
-                      amount={analytics?.transactionCount?.toString() || '0'} 
+                      title="Investments" 
+                      amount="₹3,50,000" 
                       trend="+18% this year" 
                       trendUp={true}
                       icon={<LineChart className="w-6 h-6 text-blue-500" />}
@@ -551,12 +605,9 @@ export default function App() {
                         <button className="text-sm font-medium text-primary hover:underline">View All</button>
                       </div>
                       <div className="grid grid-cols-1 gap-4">
-                        {insights.map((insight, idx) => (
+                        {INSIGHTS.map((insight, idx) => (
                           <AdvancedInsightCard key={insight.id} insight={insight} delay={idx * 0.1} />
                         ))}
-                        {insights.length === 0 && (
-                          <p className="text-center text-sm text-muted-foreground py-8">No AI insights available yet. Keep tracking your expenses!</p>
-                        )}
                       </div>
                     </motion.div>
 
@@ -576,32 +627,33 @@ export default function App() {
                         <button className="text-sm font-medium text-muted-foreground hover:text-foreground">Clear All</button>
                       </div>
                       <div className="space-y-4">
-                        {insights.map((insight, idx) => (
+                        {SMART_ALERTS.map((alert, idx) => (
                           <motion.div 
-                            key={insight.id}
+                            key={alert.id}
                             initial={{ opacity: 0, y: 10 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.1 }}
                             className={cn(
                               "p-4 rounded-2xl border flex gap-4 items-start",
-                              insight.type === 'warning' ? "bg-amber-500/5 border-amber-500/10" : "bg-blue-500/5 border-blue-500/10"
+                              alert.type === 'warning' ? "bg-amber-500/5 border-amber-500/10" :
+                              alert.type === 'success' ? "bg-emerald-500/5 border-emerald-500/10" :
+                              "bg-blue-500/5 border-blue-500/10"
                             )}
                           >
                             <div className={cn(
                               "p-2 rounded-xl",
-                              insight.type === 'warning' ? "bg-amber-500/10 text-amber-500" : "bg-blue-500/10 text-blue-500"
+                              alert.type === 'warning' ? "bg-amber-500/10 text-amber-500" :
+                              alert.type === 'success' ? "bg-emerald-500/10 text-emerald-500" :
+                              "bg-blue-500/10 text-blue-500"
                             )}>
-                              {insight.type === 'warning' ? <AlertCircle className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+                              {alert.icon}
                             </div>
                             <div>
-                              <h4 className="font-bold text-sm">{insight.type === 'warning' ? 'Financial Warning' : 'Smart Suggestion'}</h4>
-                              <p className="text-xs text-muted-foreground mt-1">{insight.message}</p>
+                              <h4 className="font-bold text-sm">{alert.title}</h4>
+                              <p className="text-xs text-muted-foreground mt-1">{alert.desc}</p>
                             </div>
                           </motion.div>
                         ))}
-                        {insights.length === 0 && (
-                          <p className="text-center text-sm text-muted-foreground py-8">No insights yet. Add some transactions to get started!</p>
-                        )}
                       </div>
                     </motion.div>
                   </section>
@@ -658,9 +710,7 @@ export default function App() {
                                       {t.category}
                                     </span>
                                   </td>
-                                  <td className="px-6 py-4 text-sm text-muted-foreground">
-                                    {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                  </td>
+                                  <td className="px-6 py-4 text-sm text-muted-foreground">{t.date}</td>
                                   <td className={cn(
                                     "px-6 py-4 text-sm font-bold text-right",
                                     t.amount > 0 ? "text-emerald-500" : "text-foreground"
@@ -779,7 +829,7 @@ export default function App() {
                             <ResponsiveContainer width="100%" height="100%">
                               <RechartsPieChart>
                                 <Pie
-                                  data={expenseChartData}
+                                  data={EXPENSE_DATA}
                                   cx="50%"
                                   cy="50%"
                                   innerRadius={60}
@@ -789,7 +839,7 @@ export default function App() {
                                   animationBegin={0}
                                   animationDuration={1500}
                                 >
-                                  {expenseChartData.map((entry, index) => (
+                                  {EXPENSE_DATA.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={entry.color} />
                                   ))}
                                 </Pie>
@@ -801,7 +851,7 @@ export default function App() {
                           )}
                         </div>
                         <div className="grid grid-cols-2 gap-2 mt-4">
-                          {expenseChartData.map(item => (
+                          {EXPENSE_DATA.map(item => (
                             <div key={item.name} className="flex items-center gap-2 text-sm">
                               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                               <span className="text-muted-foreground">{item.name}</span>
@@ -825,7 +875,7 @@ export default function App() {
                         <div className="flex-1 min-h-[250px]">
                           {isLoading ? <SkeletonLoader height="250px" /> : (
                             <ResponsiveContainer width="100%" height="100%">
-                              <BarChart data={monthlyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                              <BarChart data={MONTHLY_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/50" />
                                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'currentColor', opacity: 0.5 }} />
                                 <YAxis axisLine={false} tickLine={false} tick={{ fill: 'currentColor', opacity: 0.5 }} />
@@ -855,7 +905,7 @@ export default function App() {
                         <div className="flex-1 min-h-[300px]">
                           {isLoading ? <SkeletonLoader height="300px" /> : (
                             <ResponsiveContainer width="100%" height="100%">
-                              <RechartsLineChart data={monthlyChartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                              <RechartsLineChart data={SAVINGS_DATA} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/50" />
                                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'currentColor', opacity: 0.5 }} />
                                 <YAxis axisLine={false} tickLine={false} tick={{ fill: 'currentColor', opacity: 0.5 }} />
@@ -962,26 +1012,9 @@ export default function App() {
                       </button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {goals.map((goal, idx) => (
-                        <GoalCard 
-                          key={goal.id} 
-                          goal={{
-                            id: parseInt(goal.id) || idx,
-                            name: goal.title,
-                            target: goal.target_amount,
-                            current: goal.current_amount,
-                            deadline: goal.deadline,
-                            color: ['bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-amber-500'][idx % 4]
-                          }} 
-                          delay={idx * 0.1} 
-                        />
+                      {GOALS.map((goal, idx) => (
+                        <GoalCard key={goal.id} goal={goal} delay={idx * 0.1} />
                       ))}
-                      {goals.length === 0 && (
-                        <div className="col-span-full p-12 text-center glass-card">
-                          <Target className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-20" />
-                          <p className="text-muted-foreground">No goals set yet. Start planning your future!</p>
-                        </div>
-                      )}
                     </div>
                   </section>
                 </motion.div>
@@ -1108,9 +1141,16 @@ function InsightCard({ text, type }: { text: string, type: 'warning' | 'danger' 
 function AdvancedInsightCard({ insight, delay }: { insight: Insight, delay: number, key?: any }) {
   const [isOpen, setIsOpen] = useState(false);
   
+  const priorityStyles: any = {
+    High: "bg-rose-500 text-white",
+    Medium: "bg-amber-500 text-white",
+    Low: "bg-emerald-500 text-white"
+  };
+
   const borderStyles: any = {
     warning: "border-amber-500/20 bg-amber-500/5",
-    suggestion: "border-emerald-500/20 bg-emerald-500/5"
+    danger: "border-rose-500/20 bg-rose-500/5",
+    success: "border-emerald-500/20 bg-emerald-500/5"
   };
 
   return (
@@ -1123,24 +1163,50 @@ function AdvancedInsightCard({ insight, delay }: { insight: Insight, delay: numb
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
-          <div className={cn("mt-1 p-1.5 rounded-lg", insight.type === 'warning' ? 'bg-amber-500/20 text-amber-500' : 'bg-emerald-500/20 text-emerald-500')}>
-            {insight.type === 'warning' ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+          <div className={cn("mt-1 p-1.5 rounded-lg", insight.type === 'danger' ? 'bg-rose-500/20 text-rose-500' : insight.type === 'warning' ? 'bg-amber-500/20 text-amber-500' : 'bg-emerald-500/20 text-emerald-500')}>
+            {insight.type === 'danger' ? <AlertCircle className="w-4 h-4" /> : insight.type === 'warning' ? <Bell className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
           </div>
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className={cn("text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded", insight.type === 'warning' ? 'bg-amber-500 text-white' : 'bg-emerald-500 text-white')}>
-                {insight.type === 'warning' ? 'Warning' : 'Suggestion'}
+              <span className={cn("text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded", priorityStyles[insight.priority])}>
+                {insight.priority} Priority
               </span>
-              <p className="text-sm font-semibold">{insight.message}</p>
+              <p className="text-sm font-semibold">{insight.text}</p>
+            </div>
+            <div className="flex items-center gap-4 mt-2">
+              <button 
+                onClick={() => setIsOpen(!isOpen)}
+                className="text-xs font-medium text-muted-foreground hover:text-primary flex items-center gap-1"
+              >
+                {isOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                {isOpen ? 'Hide details' : 'Why this?'}
+              </button>
             </div>
           </div>
         </div>
       </div>
+      
+      {isOpen && (
+        <motion.div 
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          className="mt-4 pt-4 border-t border-border/50 space-y-3"
+        >
+          <div>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Analysis</p>
+            <p className="text-sm">{insight.why}</p>
+          </div>
+          <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+            <p className="text-xs font-bold text-primary uppercase tracking-wider mb-1">Actionable Suggestion</p>
+            <p className="text-sm font-medium">{insight.action}</p>
+          </div>
+        </motion.div>
+      )}
     </motion.div>
   );
 }
 
-function GoalCard({ goal, delay }: { goal: any, delay: number, key?: any }) {
+function GoalCard({ goal, delay }: { goal: Goal, delay: number, key?: any }) {
   const progress = (goal.current / goal.target) * 100;
   
   return (
